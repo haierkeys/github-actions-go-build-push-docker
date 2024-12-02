@@ -71,7 +71,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build_file
-          path: build/
+          path: ./build/
+      - name: Upload math result for job 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: config
+          path: ./config
       - uses: docker/setup-qemu-action@v2
       - uses: docker/setup-buildx-action@v2
       - name: Build & Publish to Github Container Registry
@@ -114,7 +119,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build_file
-          path: build/
+          path: ./build/
+      - name: Download math result for build-push-docker
+        uses: actions/download-artifact@v4
+        with:
+          name: config
+          path: ./config
       - name: GZip file
         id: gzip
         run: |
