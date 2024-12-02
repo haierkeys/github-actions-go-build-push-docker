@@ -14,10 +14,31 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+  build-push-docker:
+    runs-on: ubuntu-latest
+    needs: create-realese
+    outputs:
+      TIME: ${{ env.TIME }}
+      NAME: ${{ env.NAME }}
+      IMAGE_TAG: ${{ env.IMAGE_TAG }}
+      TAG_VERSION: ${{ env.TAG_VERSION }}
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set NAME env
         run: echo NAME=$(basename ${GITHUB_REPOSITORY}) >> ${GITHUB_ENV}
+      - name: echo GITHUB_REF
+        run: echo ${GITHUB_REF}
       - name: Set IMAGE_TAG env
         run: echo IMAGE_TAG=$(basename ${GITHUB_REF}) >> ${GITHUB_ENV}
       - name: Environment Printer
@@ -35,20 +56,6 @@ jobs:
       - name: Set Go LDFLAGS
         run: echo "LDFLAGS=-ldflags \"-X global.GitTag=${{ env.TAG_VERSION }} -X global.BuildTime=${{ env.TIME }}\"" >> $GITHUB_ENV
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
-          draft: false
-          prerelease: false
-  build-push-docker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
       - uses: docker/metadata-action@v4
         id: meta
         with:
@@ -101,6 +108,8 @@ jobs:
           - { goos: linux, goarch: arm64, cc: "" }
           - { goos: windows, goarch: amd64, cc: "", ext: ".exe"  }
     steps:
+      - name: Set NAME env
+        run: echo NAME=${{ needs.build-push-docker.outputs.NAME }}-${{ needs.build-push-docker.outputs.TAG_VERSION }} >> ${GITHUB_ENV}
       - name: Download math result for build-push-docker
         uses: actions/download-artifact@v4
         with:
@@ -109,7 +118,7 @@ jobs:
       - name: GZip file
         id: gzip
         run: |
-          tar -czvf ./build/${{ env.NAME }}-${{ env.TAG_VERSION }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz ./config  -C ./build/${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }} .
+          tar -czvf ./build/${{ env.NAME }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz ./config  -C ./build/${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }} .
       - name: Upload GZip file
         id: upload-macos
         uses: actions/upload-release-asset@v1
@@ -117,6 +126,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-realese.outputs.upload_url }}
-          asset_path: ./build/${{ env.NAME }}-${{ env.TAG_VERSION }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz
-          asset_name: ${{ env.NAME }}-${{ env.TAG_VERSION }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz
+          asset_path: ./build/${{ env.NAME }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz
+          asset_name: ${{ env.NAME }}-${{ matrix.jobs.goos }}-${{ matrix.jobs.goarch }}.tar.gz
           asset_content_type: application/gzip
